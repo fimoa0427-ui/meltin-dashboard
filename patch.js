@@ -131,8 +131,21 @@
 // 권한 제어: 로그인 후 역할에 따라 UI 조정
 const _origLoginAs = loginAs;
 loginAs = function(user) {
-  // 원본 loginAs 호출 (UI 초기화)
-  _origLoginAs(user);
+  // 브랜드 없으면 원본 loginAs의 loadBrand 에러 방지
+  if (!user.brands || user.brands.length === 0) {
+    currentUser = user;
+    localStorage.setItem('meltin_session', user.id);
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+    document.getElementById('userGreeting').textContent = user.name + '님';
+    document.getElementById('brandIcon').textContent = '+';
+    document.getElementById('brandName').textContent = '브랜드를 추가하세요';
+    document.getElementById('brandMeta').textContent = '관리자 메뉴에서 추가';
+    document.getElementById('dataCount').textContent = '데이터 0건';
+  } else {
+    if (!user.activeBrandId) user.activeBrandId = user.brands[0].id;
+    _origLoginAs(user);
+  }
   
   const isAdmin = (user.role === 'admin');
   
