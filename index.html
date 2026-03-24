@@ -212,11 +212,22 @@
  </div>
  </div>
  <div class="upload-section">
+ <div style="display:flex;gap:12px;margin-bottom:12px;">
+ <button id="syncApiBtn" onclick="syncFromApi()" style="flex:1;padding:16px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:16px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity 0.2s;">
+ 🔄 카페24 주문 수집하기
+ </button>
+ <button onclick="toggleCsvUpload()" style="padding:16px 24px;background:white;border:1px solid #e0e0e0;border-radius:16px;font-size:14px;cursor:pointer;font-family:inherit;color:#666;">
+ 📁 CSV 업로드
+ </button>
+ </div>
+ <div id="syncResult" style="display:none;background:white;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);font-size:14px;"></div>
+ <div id="csvUploadArea" style="display:none;">
  <div class="upload-area" id="uploadArea">
  <div class="upload-icon">📊</div>
  <div class="upload-text">CSV 파일을 드래그하거나 클릭하여 업로드</div>
  <div class="upload-sub">cafe24 주문 데이터 CSV 파일을 업로드하세요 · 현재 선택된 브랜드에 데이터가 저장됩니다</div>
  <input type="file" id="fileInput" accept=".csv" multiple>
+ </div>
  </div>
  </div>
  <div class="date-picker-section" id="datePickerSection" style="display:none;">

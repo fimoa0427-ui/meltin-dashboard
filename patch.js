@@ -222,3 +222,51 @@ async function removeStaff(userId, userName) {
   alert('"' + userName + '" 직원이 삭제되었습니다.');
   loadStaffList();
 }
+
+// CSV 업로드 토글
+function toggleCsvUpload() {
+  var el = document.getElementById('csvUploadArea');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+// API 수동 수집
+async function syncFromApi() {
+  var btn = document.getElementById('syncApiBtn');
+  var resultDiv = document.getElementById('syncResult');
+  btn.disabled = true;
+  btn.textContent = '🔄 수집 중...';
+  btn.style.opacity = '0.7';
+  resultDiv.style.display = 'block';
+  resultDiv.innerHTML = '⏳ 카페24에서 주문 데이터를 수집하고 있습니다...';
+  
+  try {
+    var res = await fetch('/api/sync-orders');
+    var data = await res.json();
+    
+    if (data.success) {
+      var html = '✅ <strong>수집 완료!</strong><br><br>';
+      data.results.forEach(function(r) {
+        if (r.error) {
+          html += '❌ ' + r.mall + ': ' + r.error + '<br>';
+        } else {
+          html += '✅ ' + r.mall + ': 주문 ' + r.orders + '건, 품목 ' + (r.items || r.synced || 0) + '건<br>';
+        }
+      });
+      html += '<br><span style="color:#999;font-size:12px;">수집 시각: ' + new Date(data.syncedAt).toLocaleString('ko-KR') + '</span>';
+      resultDiv.innerHTML = html;
+      
+      // 대시보드 새로고침
+      if (currentUser && currentUser.activeBrandId) {
+        loadBrand(currentUser.activeBrandId);
+      }
+    } else {
+      resultDiv.innerHTML = '❌ 수집 실패: ' + JSON.stringify(data);
+    }
+  } catch(e) {
+    resultDiv.innerHTML = '❌ 오류: ' + e.message;
+  }
+  
+  btn.disabled = false;
+  btn.textContent = '🔄 카페24 주문 수집하기';
+  btn.style.opacity = '1';
+}
