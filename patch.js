@@ -36,6 +36,7 @@
       if (user.pw_hash !== simpleHash(pw)) return showError('비밀번호가 일치하지 않습니다.');
       user.pwHash = user.pw_hash;
       user.activeBrandId = user.active_brand_id;
+      user.role = user.role || 'staff';
       loginAs(user);
     };
 
@@ -126,3 +127,83 @@
     console.error('Patch failed, using localStorage fallback:', e);
   }
 })();
+
+// 권한 제어: 로그인 후 역할에 따라 UI 조정
+const _origLoginAs = loginAs;
+loginAs = function(user) {
+  _origLoginAs(user);
+  const isAdmin = (user.role === 'admin');
+  
+  // 브랜드 추가/삭제 버튼
+  document.querySelectorAll('.brand-action').forEach(function(btn) {
+    if (btn.textContent.includes('브랜드 추가') || btn.textContent.includes('브랜드 삭제')) {
+      btn.style.display = isAdmin ? 'flex' : 'none';
+    }
+  });
+  
+  // 직원 관리 버튼
+  var staffBtn = document.getElementById('staffManageBtn');
+  if (staffBtn) staffBtn.style.display = isAdmin ? 'flex' : 'none';
+  
+  // 데이터 초기화 버튼
+  var clearBtns = document.querySelectorAll('.btn-sm.danger');
+  clearBtns.forEach(function(btn) {
+    btn.style.display = isAdmin ? 'inline-block' : 'none';
+  });
+};
+
+// 직원 관리 함수들
+function showStaffModal() {
+  closeBrandDropdown();
+  document.getElementById('staffModal').style.display = 'flex';
+  loadStaffList();
+}
+
+function closeStaffModal(e) {
+  if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
+}
+
+async function loadStaffList() {
+  var list = document.getElementById('staffList');
+  list.innerHTML = '로딩 중...';
+  var staff = await DB.getAllStaff();
+  if (!staff.length) {
+    list.innerHTML = '<p style="color:#999;text-align:center;padding:20px;">등록된 직원이 없습니다.</p>';
+    return;
+  }
+  var html = '';
+  staff.forEach(function(s) {
+    var roleLabel = s.role === 'admin' ? '<span style="color:#667eea;font-weight:600;">관리자</span>' : '<span style="color:#999;">직원</span>';
+    var deleteBtn = s.role !== 'admin' ? '<button onclick="removeStaff(\'' + s.id + '\',\'' + s.name + '\')" style="padding:4px 12px;border:1px solid #ef5350;color:#ef5350;border-radius:6px;background:white;cursor:pointer;font-size:12px;font-family:inherit;">삭제</button>' : '';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0f0;">';
+    html += '<div><span style="font-weight:500;">' + s.name + '</span> <span style="font-size:12px;color:#aaa;">(' + s.id + ')</span> ' + roleLabel + '</div>';
+    html += deleteBtn + '</div>';
+  });
+  list.innerHTML = html;
+}
+
+async function addStaff() {
+  var id = document.getElementById('staffId').value.trim();
+  var name = document.getElementById('staffName').value.trim();
+  var pw = document.getElementById('staffPw').value;
+  if (!id || id.length < 4) return alert('아이디는 4자 이상이어야 합니다.');
+  if (!name) return alert('이름을 입력해주세요.');
+  if (!pw || pw.length < 4) return alert('비밀번호는 4자 이상이어야 합니다.');
+  
+  var existing = await DB.getUser(id);
+  if (existing) return alert('이미 존재하는 아이디입니다.');
+  
+  await DB.createStaff({id: id, name: name, pwHash: simpleHash(pw)});
+  alert('"' + name + '" 직원이 추가되었습니다.\n\n아이디: ' + id + '\n비밀번호: ' + pw);
+  document.getElementById('staffId').value = '';
+  document.getElementById('staffName').value = '';
+  document.getElementById('staffPw').value = '';
+  loadStaffList();
+}
+
+async function removeStaff(userId, userName) {
+  if (!confirm('"' + userName + '" 직원을 삭제하시겠습니까?')) return;
+  await DB.deleteStaff(userId);
+  alert('"' + userName + '" 직원이 삭제되었습니다.');
+  loadStaffList();
+}

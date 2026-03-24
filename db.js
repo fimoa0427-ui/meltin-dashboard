@@ -4,7 +4,8 @@ const DB = {
   async getUser(id) {
     const {data} = await supabaseClient.from('users').select('*').eq('id', id).single();
     if (!data) return null;
-    const {data: brands} = await supabaseClient.from('brands').select('*').eq('user_id', id).order('created_at');
+    // 모든 사용자가 모든 브랜드에 접근 가능 (관리자가 브랜드 관리)
+    const {data: brands} = await supabaseClient.from('brands').select('*').order('created_at');
     data.brands = brands || [];
     return data;
   },
@@ -78,4 +79,20 @@ const DB = {
       lastUpdated: row.last_updated
     };
   }
+};
+
+  // 직원 관련
+DB.getAllStaff = async function() {
+  const {data} = await supabaseClient.from('users').select('id, name, role, created_at').order('created_at');
+  return data || [];
+};
+
+DB.createStaff = async function(staff) {
+  await supabaseClient.from('users').insert({
+    id: staff.id, name: staff.name, pw_hash: staff.pwHash, role: 'staff'
+  });
+};
+
+DB.deleteStaff = async function(userId) {
+  await supabaseClient.from('users').delete().eq('id', userId);
 };
