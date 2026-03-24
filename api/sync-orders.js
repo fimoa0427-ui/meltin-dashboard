@@ -9,9 +9,7 @@ const MALL_CREDS = {
 async function doRefreshToken(mallId, rToken) {
   const cred = MALL_CREDS[mallId];
   if (!cred) return null;
-  const clientId = process.env[cred.idKey];
-  const clientSecret = process.env[cred.secretKey];
-  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+  const auth = Buffer.from(`${process.env[cred.idKey]}:${process.env[cred.secretKey]}`).toString('base64');
   const res = await fetch(`https://${mallId}.cafe24api.com/api/v2/oauth/token`, {
     method: 'POST',
     headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -20,21 +18,35 @@ async function doRefreshToken(mallId, rToken) {
   return res.json();
 }
 
-async function fetchOrders(mallId, accessToken, startDate, endDate) {
+async function apiFetch(mallId, accessToken, path) {
+  const res = await fetch(`https://${mallId}.cafe24api.com/api/v2/admin/${path}`, {
+    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+  });
+  return res.json();
+}
+
+async function fetchAllOrders(mallId, accessToken, startDate, endDate) {
   const orders = [];
   let offset = 0;
   while (true) {
-    const url = `https://${mallId}.cafe24api.com/api/v2/admin/orders?start_date=${startDate}&end_date=${endDate}&limit=100&offset=${offset}&embed=items`;
-    const res = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
-    });
-    const data = await res.json();
+    const data = await apiFetch(mallId, accessToken, `orders?start_date=${startDate}&end_date=${endDate}&limit=100&offset=${offset}`);
     if (!data.orders || data.orders.length === 0) break;
     orders.push(...data.orders);
     if (data.orders.length < 100) break;
     offset += 100;
   }
   return orders;
+}
+
+async function fetchOrderDetails(mallId, accessToken, orderId) {
+  const [itemsData, receiversData] = await Promise.all([
+    apiFetch(mallId, accessToken, `orders/${orderId}/items`),
+    apiFetch(mallId, accessToken, `orders/${orderId}/receivers`)
+  ]);
+  return {
+    items: itemsData.items || [],
+    receivers: receiversData.receivers || []
+  };
 }
 
 export default async function handler(req, res) {
@@ -51,6 +63,7 @@ export default async function handler(req, res) {
     try {
       let accessToken = token.access_token;
 
+      // 토큰 갱신
       if (new Date(token.expires_at) < new Date()) {
         const newToken = await doRefreshToken(token.mall_id, token.refresh_token);
         if (newToken?.access_token) {
@@ -68,44 +81,95 @@ export default async function handler(req, res) {
         } else { results.push({ mall: token.mall_id, error: 'Token refresh failed' }); continue; }
       }
 
+      // 어제~오늘 주문 목록
       const today = new Date().toISOString().split('T')[0];
       const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-      const orders = await fetchOrders(token.mall_id, accessToken, yesterday, today);
+      const orders = await fetchAllOrders(token.mall_id, accessToken, yesterday, today);
 
-      const rows = orders.map(o => {
-        const itemNames = o.items ? o.items.map(i => i.product_name).filter(Boolean).join(', ') : '';
-        const totalQty = o.items ? o.items.reduce((sum, i) => sum + (parseInt(i.quantity) || 1), 0) : 1;
-        const status = o.canceled === 'T' ? '취소' : (o.shipping_status === 'T' ? '배송완료' : (o.paid === 'T' ? '결제완료' : '미결제'));
+      const rows = [];
+      
+      // 각 주문별 상세 조회
+      for (const o of orders) {
+        const detail = await fetchOrderDetails(token.mall_id, accessToken, o.order_id);
+        const receiver = detail.receivers[0] || {};
         
-        return {
-          brand_id: token.brand_id,
-          order_no: o.order_id,
-          order_date: o.order_date,
-          status: status,
-          product_name: itemNames || '(상품명 없음)',
-          qty: totalQty,
-          total_payment: parseFloat(o.payment_amount) || parseFloat(o.actual_order_amount?.payment_amount) || 0,
-          payment_method: Array.isArray(o.payment_method_name) ? o.payment_method_name.join(', ') : (o.payment_method_name || ''),
-          buyer_name: o.billing_name || '',
-          receiver_name: '',
-          tracking_no: '',
-          source: 'cafe24_api',
-          last_updated: new Date().toISOString()
-        };
-      });
-
-      if (rows.length > 0) {
-        await fetch(`${supabaseUrl}/rest/v1/orders`, {
-          method: 'POST',
-          headers: {
-            'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`,
-            'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates'
-          },
-          body: JSON.stringify(rows)
-        });
+        // 품목별로 row 생성 (CSV와 동일하게)
+        if (detail.items.length > 0) {
+          for (const item of detail.items) {
+            rows.push({
+              brand_id: token.brand_id,
+              order_no: o.order_id,
+              order_item_code: item.order_item_code || '',
+              order_date: o.order_date,
+              status: item.status_text || '',
+              status_text: item.order_status_additional_info || '',
+              product_name: item.product_name || '',
+              product_option: item.option_value_default || '',
+              qty: parseInt(item.quantity) || 1,
+              price: parseFloat(item.product_price) || 0,
+              purchase_amount: parseFloat(item.option_price) || 0,
+              total_payment: parseFloat(o.payment_amount) || 0,
+              payment_method: Array.isArray(o.payment_method_name) ? o.payment_method_name.join(', ') : '',
+              buyer_name: o.billing_name || '',
+              receiver_name: receiver.name || '',
+              receiver_phone: receiver.cellphone || receiver.phone || '',
+              receiver_address: receiver.address_full || '',
+              shipping_message: receiver.shipping_message || '',
+              tracking_no: item.tracking_no || '',
+              shipping_start: item.shipped_date || '',
+              shipping_complete: item.delivered_date || '',
+              cancel_type: item.claim_reason_type || '',
+              cancel_reason: item.claim_reason || '',
+              cancel_date: item.cancel_request_date || item.cancel_date || '',
+              refund_amount: 0,
+              refund_status: '',
+              refund_method: item.refund_bank_name || '',
+              refund_date: item.refund_date || '',
+              exchange_status: '',
+              exchange_date: item.exchange_request_date || item.exchange_date || '',
+              exchange_reason: '',
+              return_date: item.return_request_date || '',
+              return_reason: '',
+              coupon_discount: parseFloat(item.coupon_discount_price) || 0,
+              source: 'cafe24_api',
+              last_updated: new Date().toISOString()
+            });
+          }
+        } else {
+          // 품목 없는 경우 주문 기본 정보만
+          rows.push({
+            brand_id: token.brand_id,
+            order_no: o.order_id,
+            order_date: o.order_date,
+            status: o.canceled === 'T' ? '취소' : (o.paid === 'T' ? '결제완료' : '미결제'),
+            product_name: '(상품 정보 없음)',
+            qty: 1,
+            total_payment: parseFloat(o.payment_amount) || 0,
+            payment_method: Array.isArray(o.payment_method_name) ? o.payment_method_name.join(', ') : '',
+            buyer_name: o.billing_name || '',
+            receiver_name: receiver.name || '',
+            source: 'cafe24_api',
+            last_updated: new Date().toISOString()
+          });
+        }
       }
 
-      results.push({ mall: token.mall_id, orders: orders.length, synced: rows.length });
+      // DB 저장
+      if (rows.length > 0) {
+        const batchSize = 100;
+        for (let i = 0; i < rows.length; i += batchSize) {
+          await fetch(`${supabaseUrl}/rest/v1/orders`, {
+            method: 'POST',
+            headers: {
+              'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`,
+              'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates'
+            },
+            body: JSON.stringify(rows.slice(i, i + batchSize))
+          });
+        }
+      }
+
+      results.push({ mall: token.mall_id, orders: orders.length, items: rows.length });
     } catch (e) {
       results.push({ mall: token.mall_id, error: e.message });
     }
