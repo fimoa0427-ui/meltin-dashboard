@@ -54,7 +54,12 @@ export default async function handler(req, res) {
   const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
   const results = [];
 
-  const tokenRes = await fetch(`${supabaseUrl}/rest/v1/cafe24_tokens?select=*`, {
+  // mall 파라미터로 특정 쇼핑몰만 수집 가능
+  const paramMall = req.query?.mall || req.url?.match(/mall=([^&]+)/)?.[1];
+  const tokenUrl = paramMall 
+    ? `${supabaseUrl}/rest/v1/cafe24_tokens?select=*&mall_id=eq.${paramMall}`
+    : `${supabaseUrl}/rest/v1/cafe24_tokens?select=*`;
+  const tokenRes = await fetch(tokenUrl, {
     headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` }
   });
   const tokens = await tokenRes.json();
@@ -93,9 +98,15 @@ export default async function handler(req, res) {
 
       const rows = [];
       
-      // 각 주문별 상세 조회
+      // fast 모드: 상세 조회 생략 (빠른 수집)
+      const paramFast = req.query?.fast || req.url?.includes('fast=1');
       for (const o of orders) {
-        const detail = await fetchOrderDetails(token.mall_id, accessToken, o.order_id);
+        let detail;
+        if (paramFast) {
+          detail = { items: [], receivers: [] };
+        } else {
+          detail = await fetchOrderDetails(token.mall_id, accessToken, o.order_id);
+        }
         const receiver = detail.receivers[0] || {};
         
         // 품목별로 row 생성 (CSV와 동일하게)
