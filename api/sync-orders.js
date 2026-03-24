@@ -14,8 +14,8 @@ async function doRefreshToken(mallId, rToken) {
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
   const res = await fetch(`https://${mallId}.cafe24api.com/api/v2/oauth/token`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: rToken, client_id: process.env[cred.idKey], client_secret: process.env[cred.secretKey] })
+    headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: rToken })
   });
   return res.json();
 }
@@ -24,9 +24,9 @@ async function fetchOrders(mallId, accessToken, startDate, endDate) {
   const orders = [];
   let offset = 0;
   while (true) {
-    const url = `https://${mallId}.cafe24api.com/api/v2/admin/orders?start_date=${startDate}&end_date=${endDate}&limit=100&offset=${offset}`;
+    const url = `https://${mallId}.cafe24api.com/api/v2/admin/orders?start_date=${startDate}&end_date=${endDate}&limit=100&offset=${offset}&embed=items`;
     const res = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json', 'X-Cafe24-Api-Version': '2024-06-01' }
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
     });
     const data = await res.json();
     if (!data.orders || data.orders.length === 0) break;
@@ -65,31 +65,34 @@ export default async function handler(req, res) {
               updated_at: new Date().toISOString()
             })
           });
-        } else {
-          results.push({ mall: token.mall_id, error: 'Token refresh failed' });
-          continue;
-        }
+        } else { results.push({ mall: token.mall_id, error: 'Token refresh failed' }); continue; }
       }
 
       const today = new Date().toISOString().split('T')[0];
       const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
       const orders = await fetchOrders(token.mall_id, accessToken, yesterday, today);
 
-      const rows = orders.map(o => ({
-        brand_id: token.brand_id,
-        order_no: o.order_id,
-        order_date: o.order_date,
-        status: o.order_status || '',
-        product_name: o.items?.[0]?.product_name || '',
-        qty: o.items?.[0]?.quantity || 1,
-        total_payment: parseFloat(o.actual_payment?.payment_amount) || 0,
-        payment_method: o.payment?.payment_method_name || '',
-        buyer_name: o.buyer?.name || '',
-        receiver_name: o.receiver?.name || '',
-        tracking_no: o.shipments?.[0]?.tracking_no || '',
-        source: 'cafe24_api',
-        last_updated: new Date().toISOString()
-      }));
+      const rows = orders.map(o => {
+        const itemNames = o.items ? o.items.map(i => i.product_name).filter(Boolean).join(', ') : '';
+        const totalQty = o.items ? o.items.reduce((sum, i) => sum + (parseInt(i.quantity) || 1), 0) : 1;
+        const status = o.canceled === 'T' ? '취소' : (o.shipping_status === 'T' ? '배송완료' : (o.paid === 'T' ? '결제완료' : '미결제'));
+        
+        return {
+          brand_id: token.brand_id,
+          order_no: o.order_id,
+          order_date: o.order_date,
+          status: status,
+          product_name: itemNames || '(상품명 없음)',
+          qty: totalQty,
+          total_payment: parseFloat(o.payment_amount) || parseFloat(o.actual_order_amount?.payment_amount) || 0,
+          payment_method: Array.isArray(o.payment_method_name) ? o.payment_method_name.join(', ') : (o.payment_method_name || ''),
+          buyer_name: o.billing_name || '',
+          receiver_name: '',
+          tracking_no: '',
+          source: 'cafe24_api',
+          last_updated: new Date().toISOString()
+        };
+      });
 
       if (rows.length > 0) {
         await fetch(`${supabaseUrl}/rest/v1/orders`, {
