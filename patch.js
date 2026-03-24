@@ -278,77 +278,7 @@ function toggleNpayUpload() {
 }
 
 // 네이버페이 엑셀 업로드 처리
-// 네이버페이 엑셀 업로드 이벤트
-(function() {
-  var npayInput = document.getElementById('npayFileInput');
-  if (!npayInput) { setTimeout(arguments.callee, 500); return; }
-    npayInput.addEventListener('change', function(e) {
-      var file = e.target.files[0];
-      if (!file) return;
-      
-      var reader = new FileReader();
-      reader.onload = async function(ev) {
-        try {
-          // XLSX 파싱 (SheetJS 사용)
-          if (typeof XLSX === 'undefined') {
-            // SheetJS 동적 로드
-            await new Promise(function(resolve) {
-              var script = document.createElement('script');
-              script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
-              script.onload = resolve;
-              document.head.appendChild(script);
-            });
-          }
-          
-          var data = new Uint8Array(ev.target.result);
-          var workbook = XLSX.read(data, {type: 'array'});
-          var sheet = workbook.Sheets[workbook.SheetNames[0]];
-          var json = XLSX.utils.sheet_to_json(sheet);
-          
-          var settlements = json.map(function(row) {
-            return {
-              npay_order_no: String(row['주문번호'] || ''),
-              item_order_no: String(row['상품주문번호'] || ''),
-              category: row['구분'] || '',
-              product_name: row['상품명'] || '',
-              buyer_name: row['구매자명'] || '',
-              payment_date: row['결제일'] || '',
-              settle_status: row['정산상태'] || '',
-              base_amount: row['정산기준금액'] || 0,
-              npay_fee: row['Npay 수수료'] || 0,
-              sales_fee: row['매출 연동 수수료'] || 0,
-              installment_fee: row['무이자할부 수수료'] || 0,
-              benefit_amount: row['혜택금액'] || 0,
-              settle_amount: row['정산예정금액'] || 0
-            };
-          });
-          
-          if (!currentUser || !currentUser.activeBrandId) {
-            alert('브랜드를 먼저 선택해주세요.');
-            return;
-          }
-          
-          var res = await fetch('/api/upload-npay', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ settlements: settlements, brandId: currentUser.activeBrandId })
-          });
-          var result = await res.json();
-          
-          if (result.success) {
-            alert('네이버페이 정산 업로드 완료!\n\n총 ' + result.total + '건 저장\n주문 매칭 ' + result.matched + '건');
-            if (currentUser.activeBrandId) loadBrand(currentUser.activeBrandId);
-          } else {
-            alert('업로드 실패: ' + JSON.stringify(result));
-          }
-        } catch(err) {
-          alert('파일 처리 오류: ' + err.message);
-        }
-      };
-      reader.readAsArrayBuffer(file);
-      e.target.value = '';
-    });
-})();
+
 
 // DB row → JS object 변환에 새 필드 추가
 var _origDbToOrder = DB.dbToOrder;
@@ -364,3 +294,9 @@ DB.dbToOrder = function(row) {
   o.socialName = row.social_name || '';
   return o;
 };
+
+var DEBUG_MODE=false;
+function toggleDebug(){DEBUG_MODE=!DEBUG_MODE;var el=document.getElementById("debugPanel");if(!el){el=document.createElement("div");el.id="debugPanel";el.style.cssText="position:fixed;bottom:0;left:0;right:0;max-height:200px;overflow-y:auto;background:#1e1e1e;color:#0f0;font-family:monospace;font-size:12px;padding:10px;z-index:9999;display:none;";document.body.appendChild(el)}el.style.display=DEBUG_MODE?"block":"none";debugLog("디버그 모드 "+(DEBUG_MODE?"ON":"OFF"))}
+function debugLog(m){console.log("[DEBUG]",m);var el=document.getElementById("debugPanel");if(el&&DEBUG_MODE){el.innerHTML+=new Date().toLocaleTimeString()+" | "+m+"<br>";el.scrollTop=el.scrollHeight}}
+function handleNpayFile(){debugLog("파일선택시작");var i=document.createElement("input");i.type="file";i.accept=".xlsx,.xls,.csv";i.onchange=function(e){var f=e.target.files[0];if(!f)return;debugLog("파일:"+f.name);processNpayFile(f)};i.click()}
+async function processNpayFile(file){debugLog("처리시작");try{if(typeof XLSX==="undefined"){debugLog("SheetJS로딩");await new Promise(function(r,j){var s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";s.onload=r;s.onerror=j;document.head.appendChild(s)})}var reader=new FileReader();reader.onload=async function(ev){try{var data=new Uint8Array(ev.target.result);var wb=XLSX.read(data,{type:"array"});var ws=wb.Sheets[wb.SheetNames[0]];var json=XLSX.utils.sheet_to_json(ws);debugLog("파싱:"+json.length+"건");if(!json.length){alert("데이터없음");return}debugLog("키:"+Object.keys(json[0]).join(","));var s=json.map(function(r){return{npay_order_no:String(r["주문번호"]||""),item_order_no:String(r["상품주문번호"]||""),category:r["구분"]||"",product_name:r["상품명"]||"",buyer_name:r["구매자명"]||"",payment_date:r["결제일"]||"",settle_status:r["정산상태"]||"",base_amount:r["정산기준금액"]||0,npay_fee:r["Npay 수수료"]||0,sales_fee:r["매출 연동 수수료"]||0,installment_fee:r["무이자할부 수수료"]||0,benefit_amount:r["혜택금액"]||0,settle_amount:r["정산예정금액"]||0}});debugLog("전송:"+s.length+"건");if(!currentUser||!currentUser.activeBrandId){alert("브랜드선택필요");return}var res=await fetch("/api/upload-npay",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({settlements:s,brandId:currentUser.activeBrandId})});var result=await res.json();debugLog("응답:"+JSON.stringify(result));if(result.success){alert("완료! "+result.total+"건 저장, "+result.matched+"건 매칭");if(currentUser.activeBrandId)loadBrand(currentUser.activeBrandId)}else{alert("실패:"+JSON.stringify(result))}}catch(e){debugLog("에러:"+e.message);alert("오류:"+e.message)}};reader.readAsArrayBuffer(file)}catch(e){debugLog("에러:"+e.message);alert("오류:"+e.message)}}

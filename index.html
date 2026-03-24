@@ -209,6 +209,7 @@
  <div class="header-right">
  <div class="data-count" id="dataCount">데이터 0건</div>
  <div style="font-size:13px;" id="userGreeting">-</div>
+ <button onclick="toggleDebug()" style="background:rgba(255,255,255,0.15);border:none;color:white;padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;">🔧</button>
  </div>
  </div>
  <div class="upload-section">
@@ -219,7 +220,7 @@
  <button onclick="toggleCsvUpload()" style="padding:16px 24px;background:white;border:1px solid #e0e0e0;border-radius:16px;font-size:14px;cursor:pointer;font-family:inherit;color:#666;">
  📁 CSV 업로드
  </button>
- <button onclick="toggleNpayUpload()" style="padding:16px 24px;background:white;border:1px solid #4CAF50;border-radius:16px;font-size:14px;cursor:pointer;font-family:inherit;color:#4CAF50;">
+ <button onclick="handleNpayFile()" style="padding:16px 24px;background:white;border:1px solid #4CAF50;border-radius:16px;font-size:14px;cursor:pointer;font-family:inherit;color:#4CAF50;">
  💚 네이버페이 정산
  </button>
  </div>
