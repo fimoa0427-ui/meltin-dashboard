@@ -204,10 +204,20 @@ export default async function handler(req, res) {
 
       // DB 저장
       if (rows.length > 0) {
+        // 모든 row에 동일한 키 보장
+        const allKeys = new Set();
+        rows.forEach(r => Object.keys(r).forEach(k => allKeys.add(k)));
+        const keyList = [...allKeys];
+        const normalizedRows = rows.map(r => {
+          const nr = {};
+          keyList.forEach(k => { nr[k] = r[k] !== undefined ? r[k] : null; });
+          return nr;
+        });
+        
         const batchSize = 50;
         let saveErrors = [];
-        for (let i = 0; i < rows.length; i += batchSize) {
-          const batch = rows.slice(i, i + batchSize);
+        for (let i = 0; i < normalizedRows.length; i += batchSize) {
+          const batch = normalizedRows.slice(i, i + batchSize);
           const saveRes = await fetch(`${supabaseUrl}/rest/v1/orders`, {
             method: 'POST',
             headers: {
