@@ -156,20 +156,31 @@ export default async function handler(req, res) {
 
       // DB 저장
       if (rows.length > 0) {
-        const batchSize = 100;
+        const batchSize = 50;
+        let saveErrors = [];
         for (let i = 0; i < rows.length; i += batchSize) {
-          await fetch(`${supabaseUrl}/rest/v1/orders`, {
+          const batch = rows.slice(i, i + batchSize);
+          const saveRes = await fetch(`${supabaseUrl}/rest/v1/orders`, {
             method: 'POST',
             headers: {
               'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`,
               'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates'
             },
-            body: JSON.stringify(rows.slice(i, i + batchSize))
+            body: JSON.stringify(batch)
           });
+          if (!saveRes.ok) {
+            const errText = await saveRes.text();
+            saveErrors.push({ batch: i, status: saveRes.status, error: errText.substring(0, 200) });
+          }
         }
+        if (saveErrors.length > 0) {
+          results.push({ mall: token.mall_id, orders: orders.length, items: rows.length, saveErrors });
+        } else {
+          results.push({ mall: token.mall_id, orders: orders.length, items: rows.length, saved: true });
+        }
+      } else {
+        results.push({ mall: token.mall_id, orders: orders.length, items: 0 });
       }
-
-      results.push({ mall: token.mall_id, orders: orders.length, items: rows.length });
     } catch (e) {
       results.push({ mall: token.mall_id, error: e.message });
     }
