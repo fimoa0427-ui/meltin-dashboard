@@ -333,7 +333,7 @@
 <script>
 const SUPABASE_URL='https://wevwccmenooixbwojwsf.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndldndjY21lbm9vaXhid29qd3NmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMjc5MzUsImV4cCI6MjA4OTkwMzkzNX0.zi_sxRC6O_fEsFcTO3yKXt23tlrPi-Bvz4yTK2qAulQ';
-const supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+const supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 let currentUser=null,allOrders=[],charts={},currentMonth=new Date().getMonth(),currentYear=new Date().getFullYear(),dateFrom='',dateTo='',currentPreset='all';
 function getUsers(){try{return JSON.parse(localStorage.getItem('meltin_users')||'{}')}catch(e){return{}}}
 function saveUsers(u){localStorage.setItem('meltin_users',JSON.stringify(u))}
