@@ -82,9 +82,14 @@ export default async function handler(req, res) {
       }
 
       // 어제~오늘 주문 목록
+      // URL 파라미터로 날짜 지정 가능 (?from=2026-03-01&to=2026-03-24)
+      const paramFrom = req.query?.from || req.url?.split('from=')[1]?.split('&')[0];
+      const paramTo = req.query?.to || req.url?.split('to=')[1]?.split('&')[0];
       const today = new Date().toISOString().split('T')[0];
       const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-      const orders = await fetchAllOrders(token.mall_id, accessToken, yesterday, today);
+      const startDate = paramFrom || yesterday;
+      const endDate = paramTo || today;
+      const orders = await fetchAllOrders(token.mall_id, accessToken, startDate, endDate);
 
       const rows = [];
       
