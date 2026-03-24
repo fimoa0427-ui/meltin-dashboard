@@ -4,7 +4,6 @@ export default async function handler(req, res) {
   
   const mallId = state || '';
   
-  // 쇼핑몰별 Client ID/Secret
   const creds = {
     meltin: { id: process.env.CAFE24_MELTIN_CLIENT_ID, secret: process.env.CAFE24_MELTIN_CLIENT_SECRET },
     meltinkorea: { id: process.env.CAFE24_MELTINKOREA_CLIENT_ID, secret: process.env.CAFE24_MELTINKOREA_CLIENT_SECRET },
@@ -14,19 +13,16 @@ export default async function handler(req, res) {
   const cred = creds[mallId];
   if (!cred) return res.redirect('/?auth=error&msg=unknown_mall');
   
-  const auth = Buffer.from(`${cred.id}:${cred.secret}`).toString('base64');
-  
   try {
     const tokenRes = await fetch(`https://${mallId}.cafe24api.com/api/v2/oauth/token`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Basic ${auth}`,
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code: code,
-        redirect_uri: 'https://meltin-dashboard.vercel.app/api/callback'
+        redirect_uri: 'https://meltin-dashboard.vercel.app/api/callback',
+        client_id: cred.id,
+        client_secret: cred.secret
       })
     });
     
@@ -35,8 +31,6 @@ export default async function handler(req, res) {
     if (tokenData.access_token) {
       const supabaseUrl = process.env.SUPABASE_URL;
       const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
-      
-      // 몰→브랜드 매핑
       const brandMap = { meltin: 'brand_piven', meltinkorea: 'brand_medimory', meltinkorea2: 'brand_slimax' };
       
       await fetch(`${supabaseUrl}/rest/v1/cafe24_tokens`, {

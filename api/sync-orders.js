@@ -14,8 +14,8 @@ async function doRefreshToken(mallId, rToken) {
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
   const res = await fetch(`https://${mallId}.cafe24api.com/api/v2/oauth/token`, {
     method: 'POST',
-    headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: rToken })
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: rToken, client_id: process.env[cred.idKey], client_secret: process.env[cred.secretKey] })
   });
   return res.json();
 }
