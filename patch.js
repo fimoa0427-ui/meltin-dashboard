@@ -131,8 +131,25 @@
 // 권한 제어: 로그인 후 역할에 따라 UI 조정
 const _origLoginAs = loginAs;
 loginAs = function(user) {
-  _origLoginAs(user);
+  currentUser = user;
+  localStorage.setItem('meltin_session', user.id);
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'block';
+  document.getElementById('userGreeting').textContent = user.name + '님';
+  
   const isAdmin = (user.role === 'admin');
+  
+  // 브랜드 있으면 로드, 없으면 빈 상태 표시
+  if (user.brands && user.brands.length > 0) {
+    var activeBrand = user.activeBrandId || user.brands[0].id;
+    loadBrand(activeBrand);
+  } else {
+    document.getElementById('brandIcon').textContent = '+';
+    document.getElementById('brandName').textContent = '브랜드 없음';
+    document.getElementById('brandMeta').textContent = '브랜드를 추가해주세요';
+    document.getElementById('dataCount').textContent = '데이터 0건';
+  }
+  renderBrandSelector();
   
   // 브랜드 추가/삭제 버튼
   document.querySelectorAll('.brand-action').forEach(function(btn) {
