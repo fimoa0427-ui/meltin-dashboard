@@ -179,7 +179,8 @@
  <div class="form-group"><label>비밀번호</label><input type="password" id="loginPw" placeholder="비밀번호를 입력하세요" onkeydown="if(event.key==='Enter')doLogin()"></div>
  <button class="btn-primary" onclick="doLogin()">로그인</button>
  </div>
- 
+
+ </div>
 </div>
 <div id="mainApp" style="display:none;">
  <div class="header">
@@ -196,7 +197,9 @@
  <div class="brand-dropdown-actions">
  <button class="brand-action" onclick="showAddBrandModal()"><span>+</span> 브랜드 추가</button>
  <button class="brand-action" onclick="showDeleteBrandModal()"><span>-</span> 브랜드 삭제</button>
- <button class="brand-action" id="staffManageBtn" onclick="showStaffModal()" style="display:none;"><span>👥</span> 직원 관리</button>
+ <button class="brand-action" id="staffManageBtn" onclick="showStaffModal()" style="display:none;">
+ <span>👥</span> 직원 관리
+ </button>
  <button class="brand-action logout" onclick="doLogout()"><span>&#8594;</span> 로그아웃</button>
  </div>
  </div>
@@ -319,8 +322,7 @@
  <div id="brandDeleteContent"></div>
  </div>
 </div>
-
-<div class="modal-overlay" id="staffModal" onclick="closeStaffModal(event)" style="display:none;">
+<div class="modal-overlay" id="staffModal" onclick="if(event.target===event.currentTarget)this.style.display='none'" style="display:none;">
  <div class="modal" onclick="event.stopPropagation()" style="max-width:500px;">
  <button class="modal-close" onclick="document.getElementById('staffModal').style.display='none'">&times;</button>
  <h3>👥 직원 관리</h3>
@@ -337,7 +339,6 @@
  </div>
  </div>
 </div>
-
 <div style="height:60px;"></div>
 <script>
 const SUPABASE_URL='https://wevwccmenooixbwojwsf.supabase.co';
@@ -403,7 +404,7 @@ function clearBrandData(){const brand=currentUser.brands.find(b=>b.id===currentU
 function getDailyData(){const d={};getFilteredOrders().forEach(o=>{const dt=o.orderDate.split(' ')[0];if(!dt)return;if(!d[dt])d[dt]={revenue:0,count:0};if(!o.status.includes('취소'))d[dt].revenue+=o.totalPayment;d[dt].count++});return d}
 function fmt(n){if(!n&&n!==0)return'-';return Math.round(n).toLocaleString('ko-KR')+'원'}
 function fmtShort(n){if(n>=1e6)return(n/1e4).toFixed(0)+'만';if(n>=1e4)return(n/1e4).toFixed(1)+'만';return Math.round(n).toLocaleString('ko-KR')}
-
+// moved to patch.js
 </script>
 <script src="patch.js"></script>
 </body>
