@@ -1,17 +1,20 @@
 export default async function handler(req, res) {
   const { code, state } = req.query;
+  if (!code) return res.status(400).json({ error: 'No authorization code' });
   
-  if (!code) {
-    return res.status(400).json({ error: 'No authorization code' });
-  }
-  
-  // state에 mall_id가 들어있음
   const mallId = state || '';
   
-  // 인증 코드로 Access Token 교환
-  const clientId = process.env.CAFE24_CLIENT_ID;
-  const clientSecret = process.env.CAFE24_CLIENT_SECRET;
-  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+  // 쇼핑몰별 Client ID/Secret
+  const creds = {
+    meltin: { id: process.env.CAFE24_MELTIN_CLIENT_ID, secret: process.env.CAFE24_MELTIN_CLIENT_SECRET },
+    meltinkorea: { id: process.env.CAFE24_MELTINKOREA_CLIENT_ID, secret: process.env.CAFE24_MELTINKOREA_CLIENT_SECRET },
+    meltinkorea2: { id: process.env.CAFE24_MELTINKOREA2_CLIENT_ID, secret: process.env.CAFE24_MELTINKOREA2_CLIENT_SECRET }
+  };
+  
+  const cred = creds[mallId];
+  if (!cred) return res.redirect('/?auth=error&msg=unknown_mall');
+  
+  const auth = Buffer.from(`${cred.id}:${cred.secret}`).toString('base64');
   
   try {
     const tokenRes = await fetch(`https://${mallId}.cafe24api.com/api/v2/oauth/token`, {
@@ -30,9 +33,11 @@ export default async function handler(req, res) {
     const tokenData = await tokenRes.json();
     
     if (tokenData.access_token) {
-      // Supabase에 토큰 저장
       const supabaseUrl = process.env.SUPABASE_URL;
       const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+      
+      // 몰→브랜드 매핑
+      const brandMap = { meltin: 'brand_piven', meltinkorea: 'brand_medimory', meltinkorea2: 'brand_slimax' };
       
       await fetch(`${supabaseUrl}/rest/v1/cafe24_tokens`, {
         method: 'POST',
@@ -44,9 +49,10 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           mall_id: mallId,
+          brand_id: brandMap[mallId] || null,
           access_token: tokenData.access_token,
           refresh_token: tokenData.refresh_token,
-          expires_at: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
+          expires_at: new Date(Date.now() + (tokenData.expires_in || 21600) * 1000).toISOString(),
           updated_at: new Date().toISOString()
         })
       });
