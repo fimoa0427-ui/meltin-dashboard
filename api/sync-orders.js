@@ -164,7 +164,7 @@ export default async function handler(req, res) {
             method: 'POST',
             headers: {
               'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`,
-              'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates'
+              'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal'
             },
             body: JSON.stringify(batch)
           });
