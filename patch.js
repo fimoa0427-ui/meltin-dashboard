@@ -270,3 +270,97 @@ async function syncFromApi() {
   btn.textContent = '🔄 카페24 주문 수집하기';
   btn.style.opacity = '1';
 }
+
+// 네이버페이 업로드 토글
+function toggleNpayUpload() {
+  var el = document.getElementById('npayUploadArea');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+// 네이버페이 엑셀 업로드 처리
+document.addEventListener('DOMContentLoaded', function() {
+  var npayInput = document.getElementById('npayFileInput');
+  if (npayInput) {
+    npayInput.addEventListener('change', function(e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      
+      var reader = new FileReader();
+      reader.onload = async function(ev) {
+        try {
+          // XLSX 파싱 (SheetJS 사용)
+          if (typeof XLSX === 'undefined') {
+            // SheetJS 동적 로드
+            await new Promise(function(resolve) {
+              var script = document.createElement('script');
+              script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+              script.onload = resolve;
+              document.head.appendChild(script);
+            });
+          }
+          
+          var data = new Uint8Array(ev.target.result);
+          var workbook = XLSX.read(data, {type: 'array'});
+          var sheet = workbook.Sheets[workbook.SheetNames[0]];
+          var json = XLSX.utils.sheet_to_json(sheet);
+          
+          var settlements = json.map(function(row) {
+            return {
+              npay_order_no: String(row['주문번호'] || ''),
+              item_order_no: String(row['상품주문번호'] || ''),
+              category: row['구분'] || '',
+              product_name: row['상품명'] || '',
+              buyer_name: row['구매자명'] || '',
+              payment_date: row['결제일'] || '',
+              settle_status: row['정산상태'] || '',
+              base_amount: row['정산기준금액'] || 0,
+              npay_fee: row['Npay 수수료'] || 0,
+              sales_fee: row['매출 연동 수수료'] || 0,
+              installment_fee: row['무이자할부 수수료'] || 0,
+              benefit_amount: row['혜택금액'] || 0,
+              settle_amount: row['정산예정금액'] || 0
+            };
+          });
+          
+          if (!currentUser || !currentUser.activeBrandId) {
+            alert('브랜드를 먼저 선택해주세요.');
+            return;
+          }
+          
+          var res = await fetch('/api/upload-npay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ settlements: settlements, brandId: currentUser.activeBrandId })
+          });
+          var result = await res.json();
+          
+          if (result.success) {
+            alert('네이버페이 정산 업로드 완료!\n\n총 ' + result.total + '건 저장\n주문 매칭 ' + result.matched + '건');
+            if (currentUser.activeBrandId) loadBrand(currentUser.activeBrandId);
+          } else {
+            alert('업로드 실패: ' + JSON.stringify(result));
+          }
+        } catch(err) {
+          alert('파일 처리 오류: ' + err.message);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+      e.target.value = '';
+    });
+  }
+});
+
+// DB row → JS object 변환에 새 필드 추가
+var _origDbToOrder = DB.dbToOrder;
+DB.dbToOrder = function(row) {
+  var o = _origDbToOrder(row);
+  o.memberType = row.member_type || '회원';
+  o.orderPrice = parseFloat(row.order_price) || 0;
+  o.pointsUsed = parseFloat(row.points_used) || 0;
+  o.couponUsed = parseFloat(row.coupon_used) || 0;
+  o.npayFee = parseFloat(row.npay_fee) || 0;
+  o.settleAmount = parseFloat(row.settle_amount) || 0;
+  o.orderPlace = row.order_place || '';
+  o.socialName = row.social_name || '';
+  return o;
+};

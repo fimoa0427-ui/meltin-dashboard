@@ -76,7 +76,15 @@ const DB = {
       refundMethod: row.refund_method, refundDetail: row.refund_detail,
       exchangeReason: row.exchange_reason, returnReason: row.return_reason,
       source: row.source, statusHistory: row.status_history || [],
-      lastUpdated: row.last_updated
+      lastUpdated: row.last_updated,
+      memberType: row.member_type || '회원',
+      orderPrice: parseFloat(row.order_price) || 0,
+      pointsUsed: parseFloat(row.points_used) || 0,
+      couponUsed: parseFloat(row.coupon_used) || 0,
+      npayFee: parseFloat(row.npay_fee) || 0,
+      settleAmount: parseFloat(row.settle_amount) || 0,
+      orderPlace: row.order_place || '',
+      socialName: row.social_name || ''
     };
   }
 };
