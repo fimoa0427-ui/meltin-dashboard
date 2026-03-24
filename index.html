@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Meltin Korea - 매출 대시보드</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
@@ -161,6 +162,7 @@
  ::-webkit-scrollbar-thumb { background: #c5cae9; border-radius: 3px; }
  ::-webkit-scrollbar-thumb:hover { background: #667eea; }
 </style>
+<script src="db.js"></script>
 </head>
 <body>
 <div id="loginPage" class="login-page">
@@ -329,6 +331,9 @@
 </div>
 <div style="height:60px;"></div>
 <script>
+const SUPABASE_URL='https://wevwccmenooixbwojwsf.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndldndjY21lbm9vaXhid29qd3NmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMjc5MzUsImV4cCI6MjA4OTkwMzkzNX0.zi_sxRC6O_fEsFcTO3yKXt23tlrPi-Bvz4yTK2qAulQ';
+const supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 let currentUser=null,allOrders=[],charts={},currentMonth=new Date().getMonth(),currentYear=new Date().getFullYear(),dateFrom='',dateTo='',currentPreset='all';
 function getUsers(){try{return JSON.parse(localStorage.getItem('meltin_users')||'{}')}catch(e){return{}}}
 function saveUsers(u){localStorage.setItem('meltin_users',JSON.stringify(u))}
@@ -389,7 +394,8 @@ function clearBrandData(){const brand=currentUser.brands.find(b=>b.id===currentU
 function getDailyData(){const d={};getFilteredOrders().forEach(o=>{const dt=o.orderDate.split(' ')[0];if(!dt)return;if(!d[dt])d[dt]={revenue:0,count:0};if(!o.status.includes('취소'))d[dt].revenue+=o.totalPayment;d[dt].count++});return d}
 function fmt(n){if(!n&&n!==0)return'-';return Math.round(n).toLocaleString('ko-KR')+'원'}
 function fmtShort(n){if(n>=1e6)return(n/1e4).toFixed(0)+'만';if(n>=1e4)return(n/1e4).toFixed(1)+'만';return Math.round(n).toLocaleString('ko-KR')}
-if(!checkSession()){document.getElementById('loginPage').style.display='flex'}
+
 </script>
+<script src="patch.js"></script>
 </body>
 </html>
