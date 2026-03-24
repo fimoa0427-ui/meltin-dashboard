@@ -278,9 +278,10 @@ function toggleNpayUpload() {
 }
 
 // 네이버페이 엑셀 업로드 처리
-document.addEventListener('DOMContentLoaded', function() {
+// 네이버페이 엑셀 업로드 이벤트
+(function() {
   var npayInput = document.getElementById('npayFileInput');
-  if (npayInput) {
+  if (!npayInput) { setTimeout(arguments.callee, 500); return; }
     npayInput.addEventListener('change', function(e) {
       var file = e.target.files[0];
       if (!file) return;
@@ -347,8 +348,7 @@ document.addEventListener('DOMContentLoaded', function() {
       reader.readAsArrayBuffer(file);
       e.target.value = '';
     });
-  }
-});
+})();
 
 // DB row → JS object 변환에 새 필드 추가
 var _origDbToOrder = DB.dbToOrder;
