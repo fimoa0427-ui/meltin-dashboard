@@ -420,9 +420,13 @@ function renderIssuesTable(filter){let issues=getFilteredOrders().filter(o=>o.st
 function filterIssues(f,btn){document.querySelectorAll('#tab-issues .filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderIssuesTable(f)}
 function renderOrdersTable(filter){let orders=[...getFilteredOrders()];if(filter!=='all')orders=orders.filter(o=>o.status.includes(filter));orders.sort((a,b)=>b.orderDate.localeCompare(a.orderDate));if(!orders.length){document.getElementById('ordersTable').innerHTML='<div class="empty-state"><div class="icon">📭</div><p>해당하는 주문이 없습니다</p></div>';return}let html='<table><thead><tr><th>주문번호</th><th>주문일시</th><th>주문자</th><th>구분</th><th>상품명</th><th>수량</th><th>주문금액</th><th>적립금</th><th>쿠폰</th><th>수수료</th><th>실결제</th><th>결제수단</th><th>상태</th><th>운송장</th></tr></thead><tbody>';orders.forEach(o=>{const sc=o.status.includes('취소')?'cancel':o.status.includes('반품')||o.status.includes('환불')?'refund':o.status.includes('배송중')?'shipping':'complete';const mt=o.memberType||'회원';
 const pm=o.paymentMethod||'';
-const mtEmoji=pm.includes('선불금')?'🟢 ':pm.includes('카카오')?'🟡 ':'';
-const mtLabel=mt==='비회원'?mtEmoji+'비회원':'회원';
-const mtc=mt==='비회원'?'style="color:#ff9800;font-weight:500;"':'';
+const op=o.orderPlace||'';
+const sn=o.socialName||'';
+const isNpay=pm.includes('선불금')||op.includes('네이버')||sn==='naver';
+const isKakao=sn==='kakao';
+const mtEmoji=isNpay?'🟢':isKakao?'🟡':'';
+const mtLabel=mt==='비회원'?(mtEmoji?mtEmoji+' ':'')+mt:mt;
+const mtc=mt==='비회원'?'style="color:#ff9800;font-weight:500;text-align:left;"':'style="text-align:left;"';
 html+=`<tr><td>${o.orderNo}</td><td>${(o.orderDate||'').substring(0,10)}</td><td>${o.buyerName}</td><td ${mtc}>${mtLabel}</td><td>${(o.productName||'').substring(0,25)}</td><td style="text-align:center;">${o.qty}</td><td style="text-align:right;">${fmt(o.orderPrice||o.totalPayment)}</td><td style="text-align:right;">${o.pointsUsed?fmt(o.pointsUsed):'-'}</td><td style="text-align:right;">${o.couponUsed?fmt(o.couponUsed):'-'}</td><td style="text-align:right;color:#ef5350;">${o.npayFee?fmt(o.npayFee):'-'}</td><td style="text-align:right;font-weight:600;">${fmt(o.settleAmount||o.totalPayment)}</td><td>${o.paymentMethod}</td><td><span class="status-badge ${sc}">${o.status}</span></td><td>${o.trackingNo||'-'}</td></tr>`});html+='</tbody></table>';document.getElementById('ordersTable').innerHTML=html}
 function filterOrders(f,btn){document.querySelectorAll('#tab-allorders .filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderOrdersTable(f)}
 function switchTab(tabId,btn){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));btn.classList.add('active');document.getElementById('tab-'+tabId).classList.add('active');if(tabId==='charts')setTimeout(renderCharts,50)}
