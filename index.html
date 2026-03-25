@@ -425,8 +425,9 @@ const sn=o.socialName||'';
 const isNpay=pm.includes('선불금')||op.includes('네이버')||sn==='naver';
 const isKakao=sn==='kakao';
 const mtEmoji=isNpay?'🟢':isKakao?'🟡':'';
-const mtLabel=mt==='비회원'?(mtEmoji?mtEmoji+' ':'')+mt:mt;
-const mtc=mt==='비회원'?'style="color:#ff9800;font-weight:500;text-align:left;"':'style="text-align:left;"';
+const emojiSpan='<span style="display:inline-block;width:18px;text-align:center;">'+(mtEmoji||'')+'</span> ';
+const mtLabel=emojiSpan+mt;
+const mtc=mt==='비회원'?'style="color:#ff9800;font-weight:500;text-align:left;white-space:nowrap;"':'style="text-align:left;white-space:nowrap;"';
 html+=`<tr><td>${o.orderNo}</td><td>${(o.orderDate||'').substring(0,10)}</td><td>${o.buyerName}</td><td ${mtc}>${mtLabel}</td><td>${(o.productName||'').substring(0,25)}</td><td style="text-align:center;">${o.qty}</td><td style="text-align:right;">${fmt(o.orderPrice||o.totalPayment)}</td><td style="text-align:right;">${o.pointsUsed?fmt(o.pointsUsed):'-'}</td><td style="text-align:right;">${o.couponUsed?fmt(o.couponUsed):'-'}</td><td style="text-align:right;color:#ef5350;">${o.npayFee?fmt(o.npayFee):'-'}</td><td style="text-align:right;font-weight:600;">${fmt(o.settleAmount||o.totalPayment)}</td><td>${o.paymentMethod}</td><td><span class="status-badge ${sc}">${o.status}</span></td><td>${o.trackingNo||'-'}</td></tr>`});html+='</tbody></table>';document.getElementById('ordersTable').innerHTML=html}
 function filterOrders(f,btn){document.querySelectorAll('#tab-allorders .filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderOrdersTable(f)}
 function switchTab(tabId,btn){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));btn.classList.add('active');document.getElementById('tab-'+tabId).classList.add('active');if(tabId==='charts')setTimeout(renderCharts,50)}
