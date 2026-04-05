@@ -68,7 +68,7 @@ export default async function handler(req, res) {
     try {
       let accessToken = token.access_token;
 
-      // 토큰 갱신
+      // 토큰 갱숨
       if (new Date(token.expires_at) < new Date()) {
         const newToken = await doRefreshToken(token.mall_id, token.refresh_token);
         if (newToken?.access_token) {
@@ -111,7 +111,12 @@ export default async function handler(req, res) {
         
         // 품목별로 row 생성 (CSV와 동일하게)
         if (detail.items.length > 0) {
+          const isNpay = (o.order_place_id === 'naver' || (Array.isArray(o.payment_method) && o.payment_method.includes('prepaid')) || o.social_name === 'kakao' || o.social_name === 'naver' || !o.member_id || (o.member_id && o.member_id.includes('@')));
           for (const item of detail.items) {
+            // 품목별 금액 계산 (주문 전체금액이 아닌 개별 품목 금액)
+            const itemQty = parseInt(item.quantity) || 1;
+            const itemPrice = parseFloat(item.product_price) || parseFloat(item.option_price) || 0;
+            const itemTotal = parseFloat(item.payment_amount) || (itemPrice * itemQty);
             rows.push({
               brand_id: token.brand_id,
               order_no: o.order_id,
@@ -121,11 +126,17 @@ export default async function handler(req, res) {
               status_text: item.order_status_additional_info || '',
               product_name: item.product_name || '',
               product_option: item.option_value_default || '',
-              qty: parseInt(item.quantity) || 1,
+              qty: itemQty,
               price: parseFloat(item.product_price) || 0,
               purchase_amount: parseFloat(item.option_price) || 0,
-              total_payment: parseFloat(o.payment_amount) || parseFloat(o.actual_order_amount?.order_price_amount) || parseFloat(o.initial_order_amount?.order_price_amount) || 0,
+              order_price: itemTotal,
+              total_payment: itemTotal,
+              points_used: parseFloat(item.points_spent_amount) || 0,
+              coupon_used: parseFloat(item.coupon_discount_price) || 0,
               payment_method: Array.isArray(o.payment_method_name) ? o.payment_method_name.join(', ') : '',
+              member_type: isNpay ? '비회원' : '회원',
+              order_place: o.order_place_name || '',
+              social_name: o.social_name || '',
               buyer_name: o.billing_name || '',
               receiver_name: receiver.name || '',
               receiver_phone: receiver.cellphone || receiver.phone || '',
