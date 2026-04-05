@@ -1,16 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/sync-orders?mall=meltin",
+      "path": "/api/sync-orders",
       "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/sync-orders?mall=meltinkorea",
-      "schedule": "2 0 * * *"
-    },
-    {
-      "path": "/api/sync-orders?mall=meltinkorea2",
-      "schedule": "4 0 * * *"
     }
   ]
 }
