@@ -229,22 +229,39 @@ function toggleCsvUpload() {
   el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
-// API 수동 수집
+// 브랜드ID → 카페24 mall ID 매핑
+var BRAND_MALL_MAP = {
+  'brand_piven': 'meltin',
+  'brand_medimory': 'meltinkorea',
+  'brand_slimax': 'meltinkorea2'
+};
+
+// API 수동 수집 (현재 브랜드만)
 async function syncFromApi() {
   var btn = document.getElementById('syncApiBtn');
   var resultDiv = document.getElementById('syncResult');
   btn.disabled = true;
-  btn.textContent = '🔄 수집 중...';
   btn.style.opacity = '0.7';
   resultDiv.style.display = 'block';
-  resultDiv.innerHTML = '⏳ 카페24에서 주문 데이터를 수집하고 있습니다...';
-  
+
+  // 현재 브랜드에 해당하는 mall만 수집
+  var mallId = currentUser ? BRAND_MALL_MAP[currentUser.activeBrandId] : null;
+  var brandName = '';
+  if (currentUser) {
+    var brand = currentUser.brands.find(function(b) { return b.id === currentUser.activeBrandId; });
+    brandName = brand ? brand.name : '';
+  }
+
+  btn.textContent = '🔄 ' + (brandName || '') + ' 수집 중...';
+  resultDiv.innerHTML = '⏳ <strong>' + (brandName || '카페24') + '</strong>에서 주문 데이터를 수집하고 있습니다...';
+
   try {
-    var res = await fetch('/api/sync-orders');
+    var url = '/api/sync-orders' + (mallId ? '?mall=' + mallId : '');
+    var res = await fetch(url);
     var data = await res.json();
-    
+
     if (data.success) {
-      var html = '✅ <strong>수집 완료!</strong><br><br>';
+      var html = '✅ <strong>' + (brandName || '') + ' 수집 완료!</strong><br><br>';
       data.results.forEach(function(r) {
         if (r.error) {
           html += '❌ ' + r.mall + ': ' + r.error + '<br>';
@@ -254,7 +271,7 @@ async function syncFromApi() {
       });
       html += '<br><span style="color:#999;font-size:12px;">수집 시각: ' + new Date(data.syncedAt).toLocaleString('ko-KR') + '</span>';
       resultDiv.innerHTML = html;
-      
+
       // 대시보드 새로고침
       if (currentUser && currentUser.activeBrandId) {
         loadBrand(currentUser.activeBrandId);
@@ -265,7 +282,7 @@ async function syncFromApi() {
   } catch(e) {
     resultDiv.innerHTML = '❌ 오류: ' + e.message;
   }
-  
+
   btn.disabled = false;
   btn.textContent = '🔄 카페24 주문 수집하기';
   btn.style.opacity = '1';
@@ -278,7 +295,6 @@ function toggleNpayUpload() {
 }
 
 // 네이버페이 엑셀 업로드 처리
-
 
 // DB row → JS object 변환에 새 필드 추가
 var _origDbToOrder = DB.dbToOrder;
@@ -296,7 +312,7 @@ DB.dbToOrder = function(row) {
 };
 
 var DEBUG_MODE=false;
-function toggleDebug(){DEBUG_MODE=!DEBUG_MODE;var el=document.getElementById("debugPanel");if(!el){el=document.createElement("div");el.id="debugPanel";el.style.cssText="position:fixed;bottom:0;left:0;right:0;max-height:200px;overflow-y:auto;background:#1e1e1e;color:#0f0;font-family:monospace;font-size:12px;padding:10px;z-index:9999;display:none;";document.body.appendChild(el)}el.style.display=DEBUG_MODE?"block":"none";debugLog("디버그 모드 "+(DEBUG_MODE?"ON":"OFF"))}
+function toggleDebug(){DEBUG_MODE=!DEBUG_MODE;var el=document.getElementById("debugPanel");if(!el){el=document.createElement("div");el.id="debugPanel";el.style.cssText="position:fixed;bottom:0;left:0;right:0;max-height:200px;overflow-y:auto;background:#1e1e1e;color:#0f0;font-family:monospace;font-size:12px;padding:10px;z-index:9999;display:none;";document.body.appendChild(el)}el.style.display=DEBUAG_MODE?"block":"none";debugLog("디버그 모드 "+(DEBUG_MODE?"ON":"OFF"))}
 function debugLog(m){console.log("[DEBUG]",m);var el=document.getElementById("debugPanel");if(el&&DEBUG_MODE){el.innerHTML+=new Date().toLocaleTimeString()+" | "+m+"<br>";el.scrollTop=el.scrollHeight}}
-function handleNpayFile(){debugLog("파일선택시작");var i=document.createElement("input");i.type="file";i.accept=".xlsx,.xls,.csv";i.onchange=function(e){var f=e.target.files[0];if(!f)return;debugLog("파일:"+f.name);processNpayFile(f)};i.click()}
+function handleNpayFile(){debugLog("파일선택시작");var i=document.createElement("input");i.type="file";i.accept=".xlsx,.xls,.csv";i.onChange=function(e){var f=e.target.files[0];if(!f)return;debugLog("파일:"+f.name);processNpayFile(f)};i.click()}
 async function processNpayFile(file){debugLog("처리시작");try{if(typeof XLSX==="undefined"){debugLog("SheetJS로딩");await new Promise(function(r,j){var s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";s.onload=r;s.onerror=j;document.head.appendChild(s)})}var reader=new FileReader();reader.onload=async function(ev){try{var data=new Uint8Array(ev.target.result);var wb=XLSX.read(data,{type:"array"});var ws=wb.Sheets[wb.SheetNames[0]];var json=XLSX.utils.sheet_to_json(ws);debugLog("파싱:"+json.length+"건");if(!json.length){alert("데이터없음");return}debugLog("키:"+Object.keys(json[0]).join(","));var s=json.map(function(r){return{npay_order_no:String(r["주문번호"]||""),item_order_no:String(r["상품주문번호"]||""),category:r["구분"]||"",product_name:r["상품명"]||"",buyer_name:r["구매자명"]||"",payment_date:r["결제일"]||"",settle_status:r["정산상태"]||"",base_amount:r["정산기준금액"]||0,npay_fee:r["Npay 수수료"]||0,sales_fee:r["매출 연동 수수료"]||0,installment_fee:r["무이자할부 수수료"]||0,benefit_amount:r["혜택금액"]||0,settle_amount:r["정산예정금액"]||0}});debugLog("전송:"+s.length+"건");if(!currentUser||!currentUser.activeBrandId){alert("브랜드선택필요");return}var res=await fetch("/api/upload-npay",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({settlements:s,brandId:currentUser.activeBrandId})});var result=await res.json();debugLog("응답:"+JSON.stringify(result));if(result.success){alert("완료! "+result.total+"건 저장, "+result.matched+"건 매칭");if(currentUser.activeBrandId)loadBrand(currentUser.activeBrandId)}else{alert("실패:"+JSON.stringify(result))}}catch(e){debugLog("에러:"+e.message);alert("오류:"+e.message)}};reader.readAsArrayBuffer(file)}catch(e){debugLog("에러:"+e.message);alert("오류:"+e.message)}}
